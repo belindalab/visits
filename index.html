@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Визит торгового представителя — Belinda.tj</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --primary: #DB3C21;
+      --secondary: #3A4A53;
+      --bg: #fafafa;
+      --white: #ffffff;
+      --text: #1a1a1a;
+      --text-muted: #6b7280;
+      --border: #e5e7eb;
+      --success: #059669;
+      --error: #dc2626;
+      --radius: 8px;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    .main {
+      height: 100vh;
+      display: flex;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .control-group label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .control-group select,
+    .control-group input {
+      height: 42px;
+      padding: 0 14px;
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--white);
+      font-size: 14px;
+      font-weight: 500;
+      outline: none;
+      transition: all 0.2s ease;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      appearance: none;
+    }
+
+    .control-group select {
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+      background-position: right 12px center;
+      background-repeat: no-repeat;
+      background-size: 16px;
+      padding-right: 40px;
+    }
+
+    .control-group select:focus,
+    .control-group input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(219, 60, 33, 0.1), 0 2px 6px rgba(0, 0, 0, 0.1);
+      transform: translateY(-1px);
+    }
+
+    .btn {
+      height: 42px;
+      padding: 0 24px;
+      background: linear-gradient(135deg, var(--primary) 0%, #c63520 100%);
+      color: white;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 8px rgba(219, 60, 33, 0.25);
+      border: 2px solid transparent;
+    }
+
+    .btn:hover {
+      background: linear-gradient(135deg, #c63520 0%, #b02e1a 100%);
+      box-shadow: 0 4px 12px rgba(219, 60, 33, 0.35);
+      transform: translateY(-1px);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+      box-shadow: 0 2px 4px rgba(219, 60, 33, 0.3);
+    }
+
+    .btn:disabled {
+      background: var(--text-muted);
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    /* Основной контент */
+    .content {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+      height: 100vh;
+    }
+
+    #map {
+      flex: 2;
+      position: relative;
+    }
+
+    /* Панель отчета */
+    .report-panel {
+      flex: 1;
+      background: var(--white);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      min-width: 400px;
+    }
+
+    .report-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      background: var(--white);
+      flex-shrink: 0;
+    }
+
+    .controls-panel {
+      margin: 20px 0;
+      padding: 16px;
+      background: #f9fafb;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+    }
+
+    .controls-panel .control-group {
+      margin-bottom: 12px;
+    }
+
+    .controls-panel .control-group:last-of-type {
+      margin-bottom: 16px;
+    }
+
+    .controls-panel .control-group label {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .controls-panel .control-group select,
+    .controls-panel .control-group input {
+      width: 100%;
+      margin-bottom: 0;
+    }
+
+    .controls-panel .btn {
+      width: 100%;
+    }
+
+    .report-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .report-subtitle {
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    .legend {
+      display: flex;
+      gap: 16px;
+      margin-top: 12px;
+      padding: 12px 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .legend-marker {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .legend-marker.success {
+      background: var(--success);
+    }
+
+    .legend-marker.error {
+      background: var(--error);
+    }
+
+    .report-content {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    /* Таблица */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th {
+      background: #f9fafb;
+      padding: 12px 16px;
+      text-align: left;
+      font-weight: 500;
+      font-size: 12px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    td {
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+
+    tr:hover {
+      background: #f9fafb;
+    }
+
+    .status-success {
+      border-left: 3px solid var(--success);
+      background: #f0fdf4;
+    }
+
+    .status-error {
+      border-left: 3px solid var(--error);
+      background: #fef2f2;
+    }
+
+    .status-success:hover {
+      background: #ecfdf5;
+    }
+
+    .status-error:hover {
+      background: #fef7f7;
+    }
+
+    /* Пустое состояние */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      padding: 48px 24px;
+      text-align: center;
+    }
+
+    .empty-state-icon {
+      width: 64px;
+      height: 64px;
+      background: #f3f4f6;
+      border-radius: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      margin-bottom: 16px;
+      color: var(--text-muted);
+    }
+
+    .empty-state h3 {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .empty-state p {
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    /* Маркеры карты */
+    .seq {
+      width: 28px !important;
+      height: 28px !important;
+      color: white !important;
+      border-radius: 50% !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      font-weight: 600 !important;
+      font-size: 12px !important;
+      border: 2px solid white !important;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+      transition: all 0.2s ease !important;
+    }
+
+    /* Маркер для успешной заявки */
+    .seq.success {
+      background: var(--success) !important;
+      box-shadow: 0 2px 8px rgba(5, 150, 105, 0.25) !important;
+    }
+
+    /* Маркер для неуспешной заявки */  
+    .seq.error {
+      background: var(--error) !important;
+      box-shadow: 0 2px 8px rgba(220, 38, 38, 0.25) !important;
+    }
+
+    /* Анимация при наведении */
+    .seq:hover {
+      transform: scale(1.1) !important;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+    }
+
+    /* Уведомления */
+    .toast {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      font-size: 14px;
+      z-index: 1000;
+      transform: translateX(400px);
+      transition: transform 0.3s ease;
+    }
+
+    .toast.show {
+      transform: translateX(0);
+    }
+
+    /* Адаптивность */
+    @media (max-width: 968px) {
+      .content {
+        flex-direction: column;
+      }
+
+      #map {
+        height: 60vh;
+      }
+
+      .report-panel {
+        min-width: auto;
+        border-left: none;
+        border-top: 1px solid var(--border);
+      }
+
+      th, td {
+        padding: 12px 8px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .report-panel {
+        min-width: auto;
+      }
+
+      .controls-panel .control-group {
+        margin-bottom: 16px;
+      }
+    }
+
+    /* Загрузочный экран */
+    .page-loader {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: var(--white);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      transition: opacity 0.5s ease, visibility 0.5s ease;
+    }
+
+    .page-loader.hidden {
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    .loader-logo {
+      width: 80px;
+      height: 80px;
+      margin-bottom: 32px;
+      border-radius: 16px;
+      animation: pulse-logo 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-logo {
+      0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+      50% {
+        transform: scale(1.1);
+        opacity: 0.8;
+      }
+    }
+
+
+    .loader-spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--border);
+      border-top: 3px solid var(--primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Скроллбар */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+
+    /* Попапы карты */
+    .leaflet-popup-content-wrapper {
+      background: var(--white) !important;
+      border-radius: var(--radius) !important;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15) !important;
+      border: none !important;
+    }
+
+    .leaflet-popup-content {
+      margin: 0 !important;
+      padding: 16px !important;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif !important;
+      line-height: 1.5 !important;
+    }
+
+    .leaflet-popup-tip {
+      background: var(--white) !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="page-loader" id="pageLoader">
+    <img src="https://belinda.tj/img/main-logo.svg" alt="Belinda.tj" class="loader-logo">
+    <div class="loader-spinner"></div>
+  </div>
+
+  <div class="toast" id="toast">Загрузка…</div>
+
+  <div class="main">
+    <div class="content">
+      <div id="map"></div>
+      <div class="report-panel">
+        <div class="report-header">
+          <div class="report-title">Отчет по визитам</div>
+          <div class="report-subtitle" id="reportSubtitle">Выберите параметры для отображения данных</div>
+          
+          <!-- Панель управления -->
+          <div class="controls-panel">
+            <div class="control-group">
+              <label>ТП</label>
+              <select id="tpFilter">
+                <option value="">Все</option>
+              </select>
+            </div>
+            <div class="control-group">
+              <label>С даты</label>
+            <input type="datetime-local" id="fromDT">
+            </div>
+            <div class="control-group">
+              <label>По дату</label>
+            <input type="datetime-local" id="toDT">
+            </div>
+            <button class="btn" id="reloadBtn">Обновить</button>
+          </div>
+
+          <div class="legend">
+            <div class="legend-item">
+              <div class="legend-marker success"></div>
+              <span>Есть заявка</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-marker error"></div>
+              <span>Нет заявки</span>
+            </div>
+          </div>
+        </div>
+        <div class="report-content" id="reportContent"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = 'https://script.google.com/macros/s/AKfycbwOP9h2dJ2xKXzaE63PkqkxJWlEnt02SqHctkC4A5-VC5POnliull8ldsrFRZVuT1qc/exec';
+
+    const map = L.map('map', { zoomControl: true });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+
+    const markersLayer = L.layerGroup().addTo(map);
+    let polylineLayer = null;
+    let rawRows = [];
+
+    const tpFilterEl = document.getElementById('tpFilter');
+    const fromDTEl   = document.getElementById('fromDT');
+    const toDTEl     = document.getElementById('toDT');
+    const toastEl    = document.getElementById('toast');
+    const reportEl   = document.getElementById('reportContent');
+
+    // Установка дат по умолчанию
+    function setDefaultDates() {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      
+      // Сегодня 00:00
+      const todayStart = today.toISOString().slice(0, 16);
+      // Текущее время
+      const nowTime = now.toISOString().slice(0, 16);
+      
+      fromDTEl.value = todayStart;
+      toDTEl.value = nowTime;
+    }
+
+    // Скрытие загрузочного экрана
+    function hidePageLoader() {
+      const loader = document.getElementById('pageLoader');
+      loader.classList.add('hidden');
+      setTimeout(() => {
+        loader.remove();
+      }, 500);
+    }
+
+    // Инициализация при загрузке страницы
+    window.addEventListener('DOMContentLoaded', () => {
+      setDefaultDates();
+      
+      // Скрыть загрузчик через минимум 1 секунду
+      setTimeout(() => {
+        hidePageLoader();
+      }, 1000);
+    });
+
+    document.getElementById('reloadBtn').addEventListener('click', render);
+    tpFilterEl.addEventListener('change', render);
+    fromDTEl.addEventListener('change', render);
+    toDTEl.addEventListener('change', render);
+
+    loadData();
+
+    async function loadData(){
+      const reloadBtn = document.getElementById('reloadBtn');
+      try {
+        showToast('Загрузка данных...');
+        reloadBtn.disabled = true;
+        reloadBtn.textContent = 'Загрузка...';
+        
+        const rows = await fetchRowsFromApi();
+        rawRows = rows.map(r => ({
+          num: r.num, tp: r.tp?.trim() || '', date: r.date, t: Number(r.t),
+          lat: Number(r.lat), lng: Number(r.lng), prov: r.prov, apt: r.apt, req: r.req, note: r.note
+        }));
+        fillTpFilter(rawRows);
+        render();
+        
+        showToast('Данные загружены');
+        setTimeout(hideToast, 2000);
+      } catch (err) {
+        showToast('Ошибка загрузки: ' + (err?.message || err));
+        setTimeout(hideToast, 4000);
+        console.error(err);
+      } finally {
+        reloadBtn.disabled = false;
+        reloadBtn.textContent = 'Обновить';
+      }
+    }
+
+    async function fetchRowsFromApi(params = {}){
+      const q = new URLSearchParams({ format:'json', ...params }).toString();
+      const res = await fetch(`${API_URL}?${q}`, { cache: 'no-store' });
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      if(!data.ok) throw new Error(data.error || 'bad_response');
+      return data.rows || [];
+    }
+
+    function fillTpFilter(rows){
+      const uniq = Array.from(new Set(rows.map(r => (r.tp || '').trim()).filter(Boolean))).sort();
+      tpFilterEl.innerHTML = '<option value="">Все</option>';
+      uniq.forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v; opt.textContent = v;
+        tpFilterEl.appendChild(opt);
+      });
+      
+      // Автоматически выбрать первого ТП
+      if (uniq.length > 0) {
+        tpFilterEl.value = uniq[0];
+      }
+    }
+
+    function render(){
+      const tpVal = tpFilterEl.value;
+      const fromMs = fromDTEl.value ? new Date(fromDTEl.value).getTime() : -Infinity;
+      const toMs   = toDTEl.value   ? new Date(toDTEl.value).getTime()   :  Infinity;
+
+      const rows = rawRows
+        .filter(r => Number.isFinite(r.t))
+        .filter(r => (tpVal ? r.tp === tpVal : true))
+        .filter(r => r.t >= fromMs && r.t <= toMs)
+        .sort((a,b) => a.t - b.t);
+
+      markersLayer.clearLayers();
+      if (polylineLayer){ map.removeLayer(polylineLayer); polylineLayer = null; }
+
+      if (rows.length === 0){
+        map.setView([38.5598, 68.7870], 12);
+        document.getElementById('reportSubtitle').textContent = 'Нет данных для отображения';
+        reportEl.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">📍</div>
+            <h3>Нет данных</h3>
+            <p>Выберите другие параметры фильтрации или обновите данные</p>
+          </div>
+        `;
+        return;
+      }
+
+      const latlngs = [];
+      rows.forEach((r, idx) => {
+        latlngs.push([r.lat, r.lng]);
+        const div = document.createElement('div');
+        
+        // Определяем статус заявки и соответствующий класс
+        const hasRequest = r.req && r.req.toLowerCase().includes('есть');
+        const statusClass = hasRequest ? 'success' : 'error';
+        
+        div.className = `seq ${statusClass}`;
+        div.textContent = String(idx+1);
+        const icon = L.divIcon({ html: div, className:'', iconSize:[32,32] });
+        const marker = L.marker([r.lat, r.lng], { icon }).addTo(markersLayer);
+        marker.bindPopup(`
+          <div>
+            <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px; color: var(--text);">
+              ${escapeHtml(r.tp || 'Точка')}
+            </div>
+            <div style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
+              ${formatDate(r.t)}
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px;">
+              <div><span style="color: var(--text-muted);">Аптека:</span> <strong>${escapeHtml(r.apt || '—')}</strong></div>
+              <div><span style="color: var(--text-muted);">Провизор:</span> ${escapeHtml(r.prov || '—')}</div>
+              <div><span style="color: var(--text-muted);">Заявка:</span> 
+                <span style="color: ${(r.req && r.req.toLowerCase().includes('есть')) ? 'var(--success)' : 'var(--error)'}; font-weight: 500;">
+                  ${escapeHtml(r.req || '—')}
+                </span>
+              </div>
+              ${r.note ? `<div><span style="color: var(--text-muted);">Комментарий:</span> ${escapeHtml(r.note)}</div>` : ''}
+            </div>
+            <div style="color: var(--text-muted); font-size: 12px; border-top: 1px solid var(--border); padding-top: 8px;">
+              ${r.lat.toFixed(6)}, ${r.lng.toFixed(6)}
+            </div>
+          </div>
+        `);
+      });
+
+      polylineLayer = L.polyline(latlngs, { 
+        color: '#DB3C21', 
+        weight: 3, 
+        opacity: 0.8,
+        dashArray: '5, 10' 
+      }).addTo(map);
+      map.fitBounds(polylineLayer.getBounds(), { padding: [30,30] });
+
+      renderReport(rows);
+    }
+
+    function renderReport(rows){
+      // Обновляем подзаголовок с количеством записей
+      const subtitleEl = document.getElementById('reportSubtitle');
+      const successCount = rows.filter(r => r.req && r.req.toLowerCase().includes('есть')).length;
+      subtitleEl.textContent = `${rows.length} визита ${successCount} с заявкой`;
+      
+      let html = '<table><thead><tr><th>Время</th><th>Аптека</th><th>Провизор</th><th>Заявка</th><th>Комментарии</th></tr></thead><tbody>';
+      rows.forEach((r) => {
+        const statusClass = (r.req && r.req.toLowerCase().includes('есть')) ? 'status-success' : 'status-error';
+        html += `<tr class="${statusClass}">
+          <td>${formatDate(r.t)}</td>
+          <td>${escapeHtml(r.apt || '—')}</td>
+          <td style="color: var(--text-muted)">${escapeHtml(r.prov || '—')}</td>
+          <td>${escapeHtml(r.req || '—')}</td>
+          <td>${escapeHtml(r.note || '—')}</td>
+        </tr>`;
+      });
+      html += '</tbody></table>';
+      reportEl.innerHTML = html;
+    }
+
+    function formatDate(ms){
+      const d = new Date(ms);
+      const dd = String(d.getDate()).padStart(2,'0');
+      const mm = String(d.getMonth()+1).padStart(2,'0');
+      const yyyy = d.getFullYear();
+      const hh = String(d.getHours()).padStart(2,'0');
+      const mi = String(d.getMinutes()).padStart(2,'0');
+      return `${dd}.${mm}.${yyyy} ${hh}:${mi}`;
+    }
+    function escapeHtml(s){ return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+    
+    function showToast(msg){ 
+      toastEl.textContent = msg; 
+      toastEl.style.display = 'block'; 
+      setTimeout(() => toastEl.classList.add('show'), 10);
+    }
+    
+    function hideToast(){ 
+      toastEl.classList.remove('show');
+      setTimeout(() => toastEl.style.display = 'none', 300);
+    }
+  </script>
+</body>
+</html>
