@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Визит торгового представителя — Belinda.tj</title>
+  <link rel="icon" href="https://i.postimg.cc/tJy56gsy/985623.png" type="image/png">
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
@@ -148,6 +149,94 @@
       flex-shrink: 0;
     }
 
+    /* Детальная панель визита */
+    .visit-detail {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin: 16px 24px;
+      padding: 20px;
+      box-shadow: var(--shadow-sm);
+      display: none;
+    }
+
+    .visit-detail.active {
+      display: block;
+      animation: slideIn 0.3s ease-out;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .visit-detail-header {
+      display: flex;
+      justify-content: between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .visit-detail-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .visit-detail-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 18px;
+      padding: 4px;
+      border-radius: 4px;
+      transition: all 0.2s ease;
+    }
+
+    .visit-detail-close:hover {
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .visit-detail-content {
+      display: grid;
+      gap: 12px;
+    }
+
+    .detail-field {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 8px 0;
+    }
+
+    .detail-field-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      min-width: 80px;
+    }
+
+    .detail-field-value {
+      font-size: 14px;
+      color: var(--text);
+      font-weight: 500;
+      text-align: right;
+    }
+
+    .detail-field-value.success {
+      color: var(--success);
+    }
+
+    .detail-field-value.error {
+      color: var(--error);
+    }
+
     .controls-panel {
       margin: 20px 0;
       padding: 16px;
@@ -274,6 +363,18 @@
       background: #fef7f7;
     }
 
+    /* Выделенная строка в таблице */
+    tr.selected {
+      background: #e6f3ff !important;
+      border-left: 3px solid var(--primary) !important;
+      transform: scale(1.01);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    tr.selected:hover {
+      background: #ddeeff !important;
+    }
+
     /* Пустое состояние */
     .empty-state {
       display: flex;
@@ -312,18 +413,19 @@
 
     /* Маркеры карты */
     .seq {
-      width: 28px !important;
-      height: 28px !important;
+      width: 36px !important;
+      height: 36px !important;
       color: white !important;
-      border-radius: 50% !important;
+      border-radius: 8px !important;
       display: flex !important;
       align-items: center !important;
       justify-content: center !important;
       font-weight: 600 !important;
-      font-size: 12px !important;
+      font-size: 9px !important;
       border: 2px solid white !important;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
       transition: all 0.2s ease !important;
+      text-align: center !important;
     }
 
     /* Маркер для успешной заявки */
@@ -378,6 +480,22 @@
         min-width: auto;
         border-left: none;
         border-top: 1px solid var(--border);
+      }
+
+      .visit-detail {
+        margin: 8px 12px;
+        padding: 16px;
+      }
+
+      .detail-field {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+        padding: 6px 0;
+      }
+
+      .detail-field-value {
+        text-align: left;
       }
 
       th, td {
@@ -534,6 +652,18 @@
             </div>
           </div>
         </div>
+        
+        <!-- Детальная панель для выбранного визита -->
+        <div class="visit-detail" id="visitDetail">
+          <div class="visit-detail-header">
+            <div class="visit-detail-title">Детали визита</div>
+            <button class="visit-detail-close" id="closeDetailBtn">×</button>
+          </div>
+          <div class="visit-detail-content" id="visitDetailContent">
+            <!-- Контент будет добавлен динамически -->
+          </div>
+        </div>
+        
         <div class="report-content" id="reportContent"></div>
       </div>
     </div>
@@ -554,6 +684,11 @@
     const toDTEl     = document.getElementById('toDT');
     const toastEl    = document.getElementById('toast');
     const reportEl   = document.getElementById('reportContent');
+    const visitDetailEl = document.getElementById('visitDetail');
+    const visitDetailContentEl = document.getElementById('visitDetailContent');
+    const closeDetailBtnEl = document.getElementById('closeDetailBtn');
+
+    let selectedVisitIndex = -1;
 
     // Установка дат по умолчанию
     function setDefaultDates() {
@@ -562,11 +697,38 @@
       
       // Сегодня 00:00
       const todayStart = today.toISOString().slice(0, 16);
-      // Текущее время
-      const nowTime = now.toISOString().slice(0, 16);
+      // Сегодня 23:59
+      const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59);
+      const todayEndString = todayEnd.toISOString().slice(0, 16);
       
       fromDTEl.value = todayStart;
-      toDTEl.value = nowTime;
+      toDTEl.value = todayEndString;
+    }
+
+    // Автоматическая корректировка времени при изменении дат
+    function adjustTimeForDate(inputElement, isStartDate = true) {
+      if (!inputElement.value) return;
+      
+      const dateValue = inputElement.value;
+      let dateOnly;
+      
+      // Проверяем, есть ли время в значении
+      if (dateValue.includes('T')) {
+        dateOnly = dateValue.split('T')[0]; // Получаем только дату
+      } else {
+        dateOnly = dateValue; // Если только дата
+      }
+      
+      // Проверяем корректность формата даты
+      if (dateOnly && dateOnly.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        if (isStartDate) {
+          // Для начальной даты устанавливаем 00:00
+          inputElement.value = `${dateOnly}T00:00`;
+        } else {
+          // Для конечной даты устанавливаем 23:59
+          inputElement.value = `${dateOnly}T23:59`;
+        }
+      }
     }
 
     // Скрытие загрузочного экрана
@@ -590,8 +752,28 @@
 
     document.getElementById('reloadBtn').addEventListener('click', render);
     tpFilterEl.addEventListener('change', render);
-    fromDTEl.addEventListener('change', render);
-    toDTEl.addEventListener('change', render);
+    
+    // Обработчики для автоматической корректировки времени и рендеринга
+    fromDTEl.addEventListener('change', (e) => {
+      adjustTimeForDate(e.target, true); // true = начальная дата (00:00)
+      render();
+    });
+    
+    fromDTEl.addEventListener('blur', (e) => {
+      adjustTimeForDate(e.target, true);
+    });
+    
+    toDTEl.addEventListener('change', (e) => {
+      adjustTimeForDate(e.target, false); // false = конечная дата (23:59)
+      render();
+    });
+    
+    toDTEl.addEventListener('blur', (e) => {
+      adjustTimeForDate(e.target, false);
+    });
+
+    // Обработчик закрытия детальной панели
+    closeDetailBtnEl.addEventListener('click', hideVisitDetail);
 
     loadData();
 
@@ -647,6 +829,9 @@
     }
 
     function render(){
+      // Скрываем детальную панель при обновлении
+      hideVisitDetail();
+      
       const tpVal = tpFilterEl.value;
       const fromMs = fromDTEl.value ? new Date(fromDTEl.value).getTime() : -Infinity;
       const toMs   = toDTEl.value   ? new Date(toDTEl.value).getTime()   :  Infinity;
@@ -683,9 +868,18 @@
         const statusClass = hasRequest ? 'success' : 'error';
         
         div.className = `seq ${statusClass}`;
-        div.textContent = String(idx+1);
-        const icon = L.divIcon({ html: div, className:'', iconSize:[32,32] });
+        // Извлекаем только время из даты
+        const timeOnly = formatTimeOnly(r.t);
+        div.innerHTML = `<div style="font-size: 10px; line-height: 1;">${timeOnly}</div>`;
+        const icon = L.divIcon({ html: div, className:'', iconSize:[36,36] });
         const marker = L.marker([r.lat, r.lng], { icon }).addTo(markersLayer);
+        
+        // Обработчик клика на маркере - показывать детальную панель
+        marker.on('click', () => {
+          showVisitDetail(idx, r);
+        });
+        
+        // Попап остается для дополнительной информации при ховере
         marker.bindPopup(`
           <div>
             <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px; color: var(--text);">
@@ -707,6 +901,9 @@
             <div style="color: var(--text-muted); font-size: 12px; border-top: 1px solid var(--border); padding-top: 8px;">
               ${r.lat.toFixed(6)}, ${r.lng.toFixed(6)}
             </div>
+            <div style="text-align: center; margin-top: 8px; font-size: 12px; color: var(--primary); font-weight: 500;">
+              💡 Нажмите на маркер для подробностей
+            </div>
           </div>
         `);
       });
@@ -722,6 +919,104 @@
       renderReport(rows);
     }
 
+    // Функция показа детальной панели визита
+    function showVisitDetail(visitIndex, visitData) {
+      selectedVisitIndex = visitIndex;
+      
+      // Создаем контент для детальной панели
+      const hasRequest = visitData.req && visitData.req.toLowerCase().includes('есть');
+      const statusClass = hasRequest ? 'success' : 'error';
+      const statusText = hasRequest ? 'Есть заявка' : 'Нет заявки';
+      
+      visitDetailContentEl.innerHTML = `
+        <div class="detail-field">
+          <div class="detail-field-label">Визит №</div>
+          <div class="detail-field-value">${visitIndex + 1}</div>
+        </div>
+        <div class="detail-field">
+          <div class="detail-field-label">Дата/Время</div>
+          <div class="detail-field-value">${formatDate(visitData.t)}</div>
+        </div>
+        <div class="detail-field">
+          <div class="detail-field-label">ТП</div>
+          <div class="detail-field-value">${escapeHtml(visitData.tp || '—')}</div>
+        </div>
+        <div class="detail-field">
+          <div class="detail-field-label">Аптека</div>
+          <div class="detail-field-value">${escapeHtml(visitData.apt || '—')}</div>
+        </div>
+        <div class="detail-field">
+          <div class="detail-field-label">Провизор</div>
+          <div class="detail-field-value">${escapeHtml(visitData.prov || '—')}</div>
+        </div>
+        <div class="detail-field">
+          <div class="detail-field-label">Заявка</div>
+          <div class="detail-field-value ${statusClass}">${statusText}</div>
+        </div>
+        ${visitData.note ? `
+        <div class="detail-field">
+          <div class="detail-field-label">Комментарий</div>
+          <div class="detail-field-value">${escapeHtml(visitData.note)}</div>
+        </div>
+        ` : ''}
+        <div class="detail-field">
+          <div class="detail-field-label">Координаты</div>
+          <div class="detail-field-value">${visitData.lat.toFixed(6)}, ${visitData.lng.toFixed(6)}</div>
+        </div>
+        <div style="text-align: center; margin-top: 16px;">
+          <button onclick="hideVisitDetail()" style="
+            padding: 8px 16px; 
+            background: var(--surface-2); 
+            border: 1px solid var(--border); 
+            border-radius: 6px; 
+            color: var(--text); 
+            cursor: pointer; 
+            font-size: 12px;
+            transition: all 0.2s ease;
+          " onmouseover="this.style.background='var(--surface-3)'" onmouseout="this.style.background='var(--surface-2)'">
+            📍 Показать все визиты
+          </button>
+        </div>
+      `;
+      
+      visitDetailEl.classList.add('active');
+      
+      // Приближаем к маркеру
+      map.setView([visitData.lat, visitData.lng], 16, {
+        animate: true,
+        duration: 0.8
+      });
+      
+      // Выделяем строку в таблице
+      highlightTableRow(visitIndex);
+      
+      showToast(`Выбран визит № ${visitIndex + 1}`);
+      setTimeout(hideToast, 2000);
+    }
+
+    // Функция скрытия детальной панели визита
+    function hideVisitDetail() {
+      selectedVisitIndex = -1;
+      visitDetailEl.classList.remove('active');
+      
+      // Убираем выделение со всех строк
+      const rows = reportEl.querySelectorAll('tr');
+      rows.forEach(row => row.classList.remove('selected'));
+      
+      // Возвращаем общий вид карты
+      if (polylineLayer) {
+        map.fitBounds(polylineLayer.getBounds(), { padding: [30,30] });
+      }
+    }
+
+    // Функция выделения строки в таблице
+    function highlightTableRow(visitIndex) {
+      const rows = reportEl.querySelectorAll('tbody tr');
+      rows.forEach((row, index) => {
+        row.classList.toggle('selected', index === visitIndex);
+      });
+    }
+
     function renderReport(rows){
       // Обновляем подзаголовок с количеством записей
       const subtitleEl = document.getElementById('reportSubtitle');
@@ -729,9 +1024,9 @@
       subtitleEl.textContent = `${rows.length} визита ${successCount} с заявкой`;
       
       let html = '<table><thead><tr><th>Время</th><th>Аптека</th><th>Провизор</th><th>Заявка</th><th>Комментарии</th></tr></thead><tbody>';
-      rows.forEach((r) => {
+      rows.forEach((r, idx) => {
         const statusClass = (r.req && r.req.toLowerCase().includes('есть')) ? 'status-success' : 'status-error';
-        html += `<tr class="${statusClass}">
+        html += `<tr class="${statusClass}" data-visit-index="${idx}" style="cursor: pointer;">
           <td>${formatDate(r.t)}</td>
           <td>${escapeHtml(r.apt || '—')}</td>
           <td style="color: var(--text-muted)">${escapeHtml(r.prov || '—')}</td>
@@ -741,6 +1036,14 @@
       });
       html += '</tbody></table>';
       reportEl.innerHTML = html;
+      
+      // Добавляем обработчики кликов на строки таблицы
+      const tableRows = reportEl.querySelectorAll('tbody tr[data-visit-index]');
+      tableRows.forEach((row, idx) => {
+        row.addEventListener('click', () => {
+          showVisitDetail(idx, rows[idx]);
+        });
+      });
     }
 
     function formatDate(ms){
@@ -751,6 +1054,13 @@
       const hh = String(d.getHours()).padStart(2,'0');
       const mi = String(d.getMinutes()).padStart(2,'0');
       return `${dd}.${mm}.${yyyy} ${hh}:${mi}`;
+    }
+
+    function formatTimeOnly(ms){
+      const d = new Date(ms);
+      const hh = String(d.getHours()).padStart(2,'0');
+      const mi = String(d.getMinutes()).padStart(2,'0');
+      return `${hh}:${mi}`;
     }
     function escapeHtml(s){ return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
     
