@@ -268,6 +268,67 @@
       width: 100%;
     }
 
+    /* iOS-стиль переключателя */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 48px;
+      height: 26px;
+      margin-right: 12px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #cbd5e1;
+      transition: .3s;
+      border-radius: 26px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 20px;
+      width: 20px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    input:checked + .slider {
+      background-color: var(--primary);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(22px);
+    }
+
+    /* Счетчик аптек */
+    .pharmacy-count {
+      background: var(--primary);
+      color: white;
+      padding: 4px 10px;
+      border-radius: 14px;
+      font-size: 13px;
+      font-weight: 700;
+      min-width: 35px;
+      text-align: center;
+      box-shadow: 0 2px 4px rgba(219, 60, 33, 0.25);
+    }
+
     .report-title {
       font-size: 16px;
       font-weight: 600;
@@ -638,6 +699,19 @@
               <label>По дату</label>
             <input type="datetime-local" id="toDT">
             </div>
+            
+            <!-- Тумблер для показа аптек -->
+            <div style="margin-top: 12px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between;">
+              <label style="display: flex; align-items: center; cursor: pointer; flex: 1;">
+                <label class="switch">
+                  <input type="checkbox" id="showPharm">
+                  <span class="slider"></span>
+                </label>
+                <span style="color: var(--text); font-size: 14px; font-weight: 500;">Показать аптеки и радиусы</span>
+              </label>
+              <span id="pharmCount" class="pharmacy-count">0</span>
+            </div>
+            
             <button class="btn" id="reloadBtn">Обновить</button>
           </div>
 
@@ -670,18 +744,21 @@
   </div>
 
   <script>
-    const API_URL = 'https://script.google.com/macros/s/AKfycbwOP9h2dJ2xKXzaE63PkqkxJWlEnt02SqHctkC4A5-VC5POnliull8ldsrFRZVuT1qc/exec';
+    const API_URL = 'https://script.google.com/macros/s/AKfycbzgrALE6lLBbX4bBMHKblKSyD5ZUyTPpn_5Y9KHHWEdxsNzq_zIjoc1eZBZIOdTOL-E/exec';
 
     const map = L.map('map', { zoomControl: true });
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
 
     const markersLayer = L.layerGroup().addTo(map);
+    const pharmacyLayer = L.layerGroup().addTo(map);
     let polylineLayer = null;
     let rawRows = [];
+    let pharmacyData = [];
 
     const tpFilterEl = document.getElementById('tpFilter');
     const fromDTEl   = document.getElementById('fromDT');
     const toDTEl     = document.getElementById('toDT');
+    const showPharmEl = document.getElementById('showPharm');
     const toastEl    = document.getElementById('toast');
     const reportEl   = document.getElementById('reportContent');
     const visitDetailEl = document.getElementById('visitDetail');
@@ -692,17 +769,30 @@
 
     // Установка дат по умолчанию
     function setDefaultDates() {
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      // Получаем текущее время в таймзоне Душанбе
+      const nowDushanbe = new Date().toLocaleString('en-US', { timeZone: 'Asia/Dushanbe' });
+      const now = new Date(nowDushanbe);
       
-      // Сегодня 00:00
-      const todayStart = today.toISOString().slice(0, 16);
-      // Сегодня 23:59
-      const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59);
-      const todayEndString = todayEnd.toISOString().slice(0, 16);
+      // Сегодня 00:00 по времени Душанбе
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0);
+      const todayStart = formatDateTimeLocal(today);
+      
+      // Сегодня 23:59 по времени Душанбе
+      const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59);
+      const todayEndString = formatDateTimeLocal(todayEnd);
       
       fromDTEl.value = todayStart;
       toDTEl.value = todayEndString;
+    }
+
+    // Вспомогательная функция для datetime-local формата
+    function formatDateTimeLocal(date) {
+      const yyyy = date.getFullYear();
+      const mm = String(date.getMonth() + 1).padStart(2, '0');
+      const dd = String(date.getDate()).padStart(2, '0');
+      const hh = String(date.getHours()).padStart(2, '0');
+      const mi = String(date.getMinutes()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
     }
 
     // Автоматическая корректировка времени при изменении дат
@@ -772,6 +862,9 @@
       adjustTimeForDate(e.target, false);
     });
 
+    // Обработчик тумблера аптек
+    showPharmEl.addEventListener('change', renderPharmacies);
+
     // Обработчик закрытия детальной панели
     closeDetailBtnEl.addEventListener('click', hideVisitDetail);
 
@@ -785,15 +878,38 @@
         reloadBtn.textContent = 'Загрузка...';
         
         const rows = await fetchRowsFromApi();
-        rawRows = rows.map(r => ({
-          num: r.num, tp: r.tp?.trim() || '', date: r.date, t: Number(r.t),
-          lat: Number(r.lat), lng: Number(r.lng), prov: r.prov, apt: r.apt, req: r.req, note: r.note
-        }));
+        rawRows = rows.map(r => {
+          // Преобразуем координаты, заменяя запятые на точки
+          const latStr = String(r.lat || '').replace(',', '.').trim();
+          const lngStr = String(r.lng || '').replace(',', '.').trim();
+          const lat = parseFloat(latStr);
+          const lng = parseFloat(lngStr);
+          
+          return {
+            num: r.num, 
+            tp: r.tp?.trim() || '', 
+            date: r.date, 
+            t: Number(r.t),
+            lat: lat, 
+            lng: lng, 
+            prov: r.prov, 
+            apt: r.apt, 
+            req: r.req, 
+            note: r.note
+          };
+        }).filter(r => {
+          // Отфильтровываем записи с невалидными координатами
+          return !isNaN(r.lat) && !isNaN(r.lng) && r.lat !== 0 && r.lng !== 0;
+        });
+        
         fillTpFilter(rawRows);
         render();
         
         showToast('Данные загружены');
         setTimeout(hideToast, 2000);
+        
+        // Загружаем аптеки
+        loadPharmacies().catch(err => console.warn('Не удалось загрузить аптеки:', err));
       } catch (err) {
         showToast('Ошибка загрузки: ' + (err?.message || err));
         setTimeout(hideToast, 4000);
@@ -811,6 +927,131 @@
       const data = await res.json();
       if(!data.ok) throw new Error(data.error || 'bad_response');
       return data.rows || [];
+    }
+
+    // Загрузка аптек
+    async function loadPharmacies() {
+      try {
+        console.log('🏥 Начинаем загрузку аптек...');
+        const q = new URLSearchParams({ format: 'json', action: 'pharmList' }).toString();
+        console.log('URL запроса:', `${API_URL}?${q}`);
+        const res = await fetch(`${API_URL}?${q}`, { cache: 'no-store' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        console.log('Ответ API (аптеки):', data);
+        if (!data.ok) throw new Error(data.error || 'bad_response');
+
+        pharmacyData = data.pharmacies || [];
+        console.log('✅ Загружено аптек:', pharmacyData.length);
+        if (pharmacyData.length > 0) {
+          console.log('Первая аптека:', pharmacyData[0]);
+        }
+        
+        // Обновляем счетчик аптек
+        const pharmCountEl = document.getElementById('pharmCount');
+        if (pharmCountEl) {
+          pharmCountEl.textContent = pharmacyData.length;
+        }
+        
+        renderPharmacies();
+      } catch (err) {
+        console.error('❌ Ошибка загрузки аптек:', err);
+        throw err;
+      }
+    }
+
+    // Отображение аптек на карте
+    function renderPharmacies() {
+      console.log('🗺️ renderPharmacies вызван');
+      pharmacyLayer.clearLayers();
+      
+      console.log('Чекбокс включен:', showPharmEl.checked);
+      
+      if (!showPharmEl.checked) {
+        console.log('❌ Чекбокс выключен, аптеки скрываем');
+        return;
+      }
+      
+      console.log('Данных аптек:', pharmacyData.length);
+      if (!Array.isArray(pharmacyData) || pharmacyData.length === 0) {
+        console.log('❌ Нет данных аптек для отображения');
+        return;
+      }
+
+      console.log('✅ Отображаем', pharmacyData.length, 'аптек на карте');
+      
+      pharmacyData.forEach((p, idx) => {
+        if (idx < 3) {
+          console.log(`Аптека ${idx}:`, p);
+        }
+        
+        // Создаем попап контент для аптеки
+        const popupContent = `
+          <div style="font-size: 14px; min-width: 200px;">
+            <div style="font-weight: 600; margin-bottom: 12px; font-size: 16px; color: #1d4ed8;">
+              🏥 ${escapeHtml(p.apt || 'Аптека')}
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div style="display: flex; justify-content: space-between;">
+                <span style="color: var(--text-muted);">Провизор:</span>
+                <strong>${escapeHtml(p.prov || '—')}</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span style="color: var(--text-muted);">Радиус:</span>
+                <strong style="color: #1d4ed8;">${p.rad} м</strong>
+              </div>
+              <div style="padding-top: 8px; margin-top: 8px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 11px;">
+                📍 ${p.lat.toFixed(6)}, ${p.lng.toFixed(6)}
+              </div>
+            </div>
+          </div>
+        `;
+        
+        // Маркер аптеки (синий кружок в центре)
+        const marker = L.circleMarker([p.lat, p.lng], {
+          radius: 8,
+          color: "#1d4ed8",
+          fillColor: "#3b82f6",
+          fillOpacity: 0.8,
+          weight: 2
+        }).addTo(pharmacyLayer);
+
+        // Радиус вокруг аптеки (кликабельный!)
+        const circle = L.circle([p.lat, p.lng], {
+          radius: p.rad,
+          color: "#3b82f6",
+          weight: 2,
+          fillColor: "#3b82f6",
+          fillOpacity: 0.15,
+          className: 'pharmacy-radius'
+        }).addTo(pharmacyLayer);
+
+        // Попап на маркер
+        marker.bindPopup(popupContent);
+        
+        // Попап на радиус (тот же контент)
+        circle.bindPopup(popupContent);
+        
+        // При клике на радиус - открываем попап
+        circle.on('click', function(e) {
+          this.openPopup();
+        });
+        
+        // Подсветка при наведении
+        circle.on('mouseover', function(e) {
+          this.setStyle({
+            fillOpacity: 0.25,
+            weight: 3
+          });
+        });
+        
+        circle.on('mouseout', function(e) {
+          this.setStyle({
+            fillOpacity: 0.15,
+            weight: 2
+          });
+        });
+      });
     }
 
     function fillTpFilter(rows){
@@ -1048,19 +1289,40 @@
 
     function formatDate(ms){
       const d = new Date(ms);
-      const dd = String(d.getDate()).padStart(2,'0');
-      const mm = String(d.getMonth()+1).padStart(2,'0');
-      const yyyy = d.getFullYear();
-      const hh = String(d.getHours()).padStart(2,'0');
-      const mi = String(d.getMinutes()).padStart(2,'0');
-      return `${dd}.${mm}.${yyyy} ${hh}:${mi}`;
+      
+      // Форматируем в таймзоне Душанбе
+      const formatter = new Intl.DateTimeFormat('ru-RU', {
+        timeZone: 'Asia/Dushanbe',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+      
+      const parts = formatter.formatToParts(d);
+      const getValue = (type) => parts.find(p => p.type === type)?.value || '';
+      
+      return `${getValue('day')}.${getValue('month')}.${getValue('year')} ${getValue('hour')}:${getValue('minute')}`;
     }
 
     function formatTimeOnly(ms){
       const d = new Date(ms);
-      const hh = String(d.getHours()).padStart(2,'0');
-      const mi = String(d.getMinutes()).padStart(2,'0');
-      return `${hh}:${mi}`;
+      
+      // Форматируем только время в таймзоне Душанбе
+      const formatter = new Intl.DateTimeFormat('ru-RU', {
+        timeZone: 'Asia/Dushanbe',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+      
+      const parts = formatter.formatToParts(d);
+      const hour = parts.find(p => p.type === 'hour')?.value || '00';
+      const minute = parts.find(p => p.type === 'minute')?.value || '00';
+      
+      return `${hour}:${minute}`;
     }
     function escapeHtml(s){ return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
     
