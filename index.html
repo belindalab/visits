@@ -1446,7 +1446,13 @@
       // Обновляем подзаголовок с количеством записей
       const subtitleEl = document.getElementById('reportSubtitle');
       const successCount = rows.filter(r => r.req && r.req.toLowerCase().includes('есть')).length;
-      subtitleEl.textContent = `${rows.length} визита ${successCount} с заявкой`;
+      const outOfRadiusCount = rows.filter(r => r.inRadius === false).length;
+      
+      let subtitleText = `${rows.length} визита ${successCount} с заявкой`;
+      if (outOfRadiusCount > 0) {
+        subtitleText += `, ${outOfRadiusCount} вне радиуса`;
+      }
+      subtitleEl.textContent = subtitleText;
       
       let html = '<table><thead><tr><th>Время</th><th>Аптека</th><th>Провизор</th><th>Заявка</th><th>В радиусе</th><th>Комментарии</th></tr></thead><tbody>';
       rows.forEach((r, idx) => {
