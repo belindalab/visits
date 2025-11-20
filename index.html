@@ -329,6 +329,129 @@
       box-shadow: 0 2px 4px rgba(219, 60, 33, 0.25);
     }
 
+    /* Вкладки (табы) */
+    .tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 2px solid var(--border);
+      margin-bottom: 16px;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 12px 16px;
+      background: transparent;
+      border: none;
+      border-bottom: 3px solid transparent;
+      color: var(--text-muted);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: center;
+    }
+
+    .tab:hover {
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    .tab.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+      background: transparent;
+    }
+
+    /* Контент вкладок */
+    .tab-content {
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    /* Поиск аптек */
+    .pharmacy-search {
+      padding: 0 24px 16px 24px;
+    }
+
+    .pharmacy-search input {
+      width: 100%;
+      height: 42px;
+      padding: 0 14px 0 40px;
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--white);
+      font-size: 14px;
+      outline: none;
+      transition: all 0.2s ease;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'%3E%3C/path%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: 12px center;
+      background-size: 20px;
+    }
+
+    .pharmacy-search input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(219, 60, 33, 0.1), 0 2px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .pharmacy-search input::placeholder {
+      color: var(--text-muted);
+    }
+
+    /* Список аптек */
+    .pharmacy-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 0 24px;
+    }
+
+    .pharmacy-item {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .pharmacy-item:hover {
+      border-color: var(--primary);
+      box-shadow: 0 2px 8px rgba(219, 60, 33, 0.15);
+      transform: translateY(-1px);
+    }
+
+    .pharmacy-item-title {
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--text);
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .pharmacy-item-info {
+      font-size: 13px;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
     .report-title {
       font-size: 16px;
       font-weight: 600;
@@ -738,13 +861,31 @@
           </div>
         </div>
         
-        <div class="report-content" id="reportContent"></div>
+        <!-- Вкладки -->
+        <div class="tabs" style="padding: 0 24px; margin-top: 16px;">
+          <button class="tab active" id="tabVisits" onclick="switchTab('visits')">📍 Визиты</button>
+          <button class="tab" id="tabPharmacies" onclick="switchTab('pharmacies')">🏥 Аптеки</button>
+        </div>
+        
+        <!-- Контент вкладок -->
+        <div class="report-content" style="flex: 1; overflow-y: auto;">
+          <!-- Вкладка Визиты -->
+          <div class="tab-content active" id="contentVisits"></div>
+          
+          <!-- Вкладка Аптеки -->
+          <div class="tab-content" id="contentPharmacies">
+            <div class="pharmacy-search">
+              <input type="text" id="pharmacySearch" placeholder="🔍 Поиск по аптеке или провизору...">
+            </div>
+            <div class="pharmacy-list" id="pharmacyList"></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
   <script>
-    const API_URL = 'https://script.google.com/macros/s/AKfycbzhDZ2WQt1P4wUk9r5r-lIhG7b_X6OMfmYSRcMgjwhbwV4IB6YjRS26IHDZDE0JYdvS/exec';
+    const API_URL = 'https://script.google.com/macros/s/AKfycbyNQnnY1JyTMXf3UHQ3Z9z5rds1y3lwLZOHc-yuPggDdC9EcS7xwaYQOBjz9D8xbxb_/exec';
 
     const map = L.map('map', { zoomControl: true });
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
@@ -760,7 +901,8 @@
     const toDTEl     = document.getElementById('toDT');
     const showPharmEl = document.getElementById('showPharm');
     const toastEl    = document.getElementById('toast');
-    const reportEl   = document.getElementById('reportContent');
+    const reportEl   = document.getElementById('contentVisits');
+    const pharmacyListEl = document.getElementById('pharmacyList');
     const visitDetailEl = document.getElementById('visitDetail');
     const visitDetailContentEl = document.getElementById('visitDetailContent');
     const closeDetailBtnEl = document.getElementById('closeDetailBtn');
@@ -865,6 +1007,14 @@
     // Обработчик тумблера аптек
     showPharmEl.addEventListener('change', renderPharmacies);
 
+    // Обработчик поиска аптек
+    const pharmacySearchEl = document.getElementById('pharmacySearch');
+    if (pharmacySearchEl) {
+      pharmacySearchEl.addEventListener('input', (e) => {
+        renderPharmacyList(e.target.value);
+      });
+    }
+
     // Обработчик закрытия детальной панели
     closeDetailBtnEl.addEventListener('click', hideVisitDetail);
 
@@ -895,7 +1045,8 @@
             prov: r.prov, 
             apt: r.apt, 
             req: r.req, 
-            note: r.note
+            note: r.note,
+            inRadius: r.inRadius || false  // НОВОЕ ПОЛЕ!
           };
         }).filter(r => {
           // Отфильтровываем записи с невалидными координатами
@@ -954,6 +1105,8 @@
         }
         
         renderPharmacies();
+        // Обновляем список аптек во вкладке (без фильтра при первой загрузке)
+        renderPharmacyList('');
       } catch (err) {
         console.error('❌ Ошибка загрузки аптек:', err);
         throw err;
@@ -985,10 +1138,20 @@
           console.log(`Аптека ${idx}:`, p);
         }
         
+        // Проверяем, выбрана ли эта аптека
+        const isSelected = (idx === selectedPharmacyIndex);
+        
+        // Цвета для выбранной аптеки (оранжевый/желтый)
+        const markerColor = isSelected ? "#f59e0b" : "#1d4ed8";
+        const markerFill = isSelected ? "#fbbf24" : "#3b82f6";
+        const circleColor = isSelected ? "#f59e0b" : "#3b82f6";
+        const circleFill = isSelected ? "#fbbf24" : "#3b82f6";
+        const circleOpacity = isSelected ? 0.3 : 0.15;
+        
         // Создаем попап контент для аптеки
         const popupContent = `
           <div style="font-size: 14px; min-width: 200px;">
-            <div style="font-weight: 600; margin-bottom: 12px; font-size: 16px; color: #1d4ed8;">
+            <div style="font-weight: 600; margin-bottom: 12px; font-size: 16px; color: ${isSelected ? '#f59e0b' : '#1d4ed8'};">
               🏥 ${escapeHtml(p.apt || 'Аптека')}
             </div>
             <div style="display: flex; flex-direction: column; gap: 8px;">
@@ -998,7 +1161,7 @@
               </div>
               <div style="display: flex; justify-content: space-between;">
                 <span style="color: var(--text-muted);">Радиус:</span>
-                <strong style="color: #1d4ed8;">${p.rad} м</strong>
+                <strong style="color: ${isSelected ? '#f59e0b' : '#1d4ed8'};">${p.rad} м</strong>
               </div>
               <div style="padding-top: 8px; margin-top: 8px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 11px;">
                 📍 ${p.lat.toFixed(6)}, ${p.lng.toFixed(6)}
@@ -1007,33 +1170,43 @@
           </div>
         `;
         
-        // Маркер аптеки (синий кружок в центре)
+        // Маркер аптеки (кружок в центре, подсвечивается если выбрана)
         const marker = L.circleMarker([p.lat, p.lng], {
-          radius: 8,
-          color: "#1d4ed8",
-          fillColor: "#3b82f6",
-          fillOpacity: 0.8,
-          weight: 2
+          radius: isSelected ? 10 : 8,
+          color: markerColor,
+          fillColor: markerFill,
+          fillOpacity: isSelected ? 1 : 0.8,
+          weight: isSelected ? 3 : 2
         }).addTo(pharmacyLayer);
 
-        // Радиус вокруг аптеки (кликабельный!)
+        // Радиус вокруг аптеки (подсвечивается если выбрана)
         const circle = L.circle([p.lat, p.lng], {
           radius: p.rad,
-          color: "#3b82f6",
-          weight: 2,
-          fillColor: "#3b82f6",
-          fillOpacity: 0.15,
+          color: circleColor,
+          weight: isSelected ? 3 : 2,
+          fillColor: circleFill,
+          fillOpacity: circleOpacity,
           className: 'pharmacy-radius'
         }).addTo(pharmacyLayer);
 
         // Попап на маркер
         marker.bindPopup(popupContent);
         
+        // При клике на маркер - выделяем эту аптеку
+        marker.on('click', function(e) {
+          selectedPharmacyIndex = idx;
+          renderPharmacies();
+          renderPharmacyList();
+        });
+        
         // Попап на радиус (тот же контент)
         circle.bindPopup(popupContent);
         
-        // При клике на радиус - открываем попап
+        // При клике на радиус - выделяем эту аптеку
         circle.on('click', function(e) {
+          selectedPharmacyIndex = idx;
+          renderPharmacies();
+          renderPharmacyList();
           this.openPopup();
         });
         
@@ -1137,6 +1310,11 @@
                   ${escapeHtml(r.req || '—')}
                 </span>
               </div>
+              <div><span style="color: var(--text-muted);">В радиусе:</span> 
+                <span style="color: ${r.inRadius ? 'var(--success)' : 'var(--error)'}; font-weight: 600; font-size: 15px;">
+                  ${r.inRadius ? '✓' : '✗'}
+                </span>
+              </div>
               ${r.note ? `<div><span style="color: var(--text-muted);">Комментарий:</span> ${escapeHtml(r.note)}</div>` : ''}
             </div>
             <div style="color: var(--text-muted); font-size: 12px; border-top: 1px solid var(--border); padding-top: 8px;">
@@ -1193,6 +1371,12 @@
         <div class="detail-field">
           <div class="detail-field-label">Заявка</div>
           <div class="detail-field-value ${statusClass}">${statusText}</div>
+        </div>
+        <div class="detail-field">
+          <div class="detail-field-label">В радиусе</div>
+          <div class="detail-field-value ${visitData.inRadius ? 'success' : 'error'}">
+            ${visitData.inRadius ? '✓ Да' : '✗ Нет'}
+          </div>
         </div>
         ${visitData.note ? `
         <div class="detail-field">
@@ -1264,14 +1448,19 @@
       const successCount = rows.filter(r => r.req && r.req.toLowerCase().includes('есть')).length;
       subtitleEl.textContent = `${rows.length} визита ${successCount} с заявкой`;
       
-      let html = '<table><thead><tr><th>Время</th><th>Аптека</th><th>Провизор</th><th>Заявка</th><th>Комментарии</th></tr></thead><tbody>';
+      let html = '<table><thead><tr><th>Время</th><th>Аптека</th><th>Провизор</th><th>Заявка</th><th>В радиусе</th><th>Комментарии</th></tr></thead><tbody>';
       rows.forEach((r, idx) => {
         const statusClass = (r.req && r.req.toLowerCase().includes('есть')) ? 'status-success' : 'status-error';
+        const radiusIcon = r.inRadius 
+          ? '<span style="color: var(--success); font-size: 16px;">✓</span>' 
+          : '<span style="color: var(--error); font-size: 16px;">✗</span>';
+        
         html += `<tr class="${statusClass}" data-visit-index="${idx}" style="cursor: pointer;">
           <td>${formatDate(r.t)}</td>
           <td>${escapeHtml(r.apt || '—')}</td>
           <td style="color: var(--text-muted)">${escapeHtml(r.prov || '—')}</td>
           <td>${escapeHtml(r.req || '—')}</td>
+          <td style="text-align: center;">${radiusIcon}</td>
           <td>${escapeHtml(r.note || '—')}</td>
         </tr>`;
       });
@@ -1335,6 +1524,124 @@
     function hideToast(){ 
       toastEl.classList.remove('show');
       setTimeout(() => toastEl.style.display = 'none', 300);
+    }
+
+    // Переключение вкладок
+    function switchTab(tabName) {
+      // Переключаем активную вкладку
+      document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+      
+      if (tabName === 'visits') {
+        document.getElementById('tabVisits').classList.add('active');
+        document.getElementById('contentVisits').classList.add('active');
+        
+        // Сбрасываем выделение аптеки
+        selectedPharmacyIndex = -1;
+        renderPharmacies();
+      } else if (tabName === 'pharmacies') {
+        document.getElementById('tabPharmacies').classList.add('active');
+        document.getElementById('contentPharmacies').classList.add('active');
+        const currentSearch = document.getElementById('pharmacySearch')?.value || '';
+        renderPharmacyList(currentSearch);
+      }
+    }
+
+    // Рендер списка аптек
+    function renderPharmacyList(searchQuery = '') {
+      if (!pharmacyListEl) return;
+      
+      if (!Array.isArray(pharmacyData) || pharmacyData.length === 0) {
+        pharmacyListEl.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">🏥</div>
+            <h3>Нет данных об аптеках</h3>
+            <p>Проверьте подключение или обновите данные</p>
+          </div>
+        `;
+        return;
+      }
+
+      // Создаем копию с индексами для сортировки
+      let pharmaciesWithIndex = pharmacyData.map((p, idx) => ({ ...p, originalIndex: idx }));
+      
+      // Фильтруем по поисковому запросу
+      if (searchQuery && searchQuery.trim()) {
+        const query = searchQuery.toLowerCase().trim();
+        pharmaciesWithIndex = pharmaciesWithIndex.filter(p => {
+          const aptName = (p.apt || '').toLowerCase();
+          const provName = (p.prov || '').toLowerCase();
+          return aptName.includes(query) || provName.includes(query);
+        });
+      }
+      
+      // Сортируем по названию аптеки
+      pharmaciesWithIndex.sort((a, b) => {
+        const nameA = (a.apt || '').toLowerCase();
+        const nameB = (b.apt || '').toLowerCase();
+        return nameA.localeCompare(nameB, 'ru');
+      });
+      
+      // Если ничего не найдено
+      if (pharmaciesWithIndex.length === 0) {
+        pharmacyListEl.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">🔍</div>
+            <h3>Ничего не найдено</h3>
+            <p>Попробуйте изменить поисковый запрос</p>
+          </div>
+        `;
+        return;
+      }
+      
+      let html = '';
+      pharmaciesWithIndex.forEach((p, displayIdx) => {
+        const idx = p.originalIndex;
+        const isSelected = (idx === selectedPharmacyIndex);
+        const borderStyle = isSelected ? 'border: 2px solid #f59e0b; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25); background: #fffbeb;' : '';
+        
+        html += `
+          <div class="pharmacy-item" onclick="showPharmacyOnMap(${idx})" style="${borderStyle}">
+            <div class="pharmacy-item-title">${escapeHtml(p.apt || 'Аптека ' + (idx + 1))}</div>
+            <div class="pharmacy-item-info">${escapeHtml(p.prov || '—')}</div>
+          </div>
+        `;
+      });
+      
+      pharmacyListEl.innerHTML = html;
+    }
+
+    // Показать аптеку на карте
+    let selectedPharmacyIndex = -1;
+    
+    function showPharmacyOnMap(pharmacyIndex) {
+      if (!pharmacyData[pharmacyIndex]) return;
+      
+      const p = pharmacyData[pharmacyIndex];
+      selectedPharmacyIndex = pharmacyIndex;
+      
+      // НЕ переключаем вкладку - карта видна слева!
+      
+      // Включаем показ аптек если выключен
+      if (!showPharmEl.checked) {
+        showPharmEl.checked = true;
+      }
+      
+      // Зумим к аптеке
+      map.setView([p.lat, p.lng], 17, {
+        animate: true,
+        duration: 0.8
+      });
+      
+      // Перерисовываем аптеки с подсветкой выбранной
+      renderPharmacies();
+      
+      // Обновляем список чтобы показать выделение (сохраняем поиск)
+      const currentSearch = document.getElementById('pharmacySearch')?.value || '';
+      renderPharmacyList(currentSearch);
+      
+      showToast(`📍 ${p.apt || 'Аптека'} - ${p.prov || ''}`);
+      setTimeout(hideToast, 2000);
     }
   </script>
 </body>
