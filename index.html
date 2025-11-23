@@ -1113,6 +1113,29 @@
       }
     }
 
+    function getPharmacyPopupHtml(p, accentColor = '#1d4ed8') {
+      return `
+        <div style="font-size: 14px; min-width: 200px;">
+          <div style="font-weight: 600; margin-bottom: 12px; font-size: 16px; color: ${accentColor};">
+            🏥 ${escapeHtml(p.apt || 'Аптека')}
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: var(--text-muted);">Провизор:</span>
+              <strong>${escapeHtml(p.prov || '—')}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: var(--text-muted);">Радиус:</span>
+              <strong style="color: ${accentColor};">${p.rad} м</strong>
+            </div>
+            <div style="padding-top: 8px; margin-top: 8px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 11px;">
+              📍 ${p.lat.toFixed(6)}, ${p.lng.toFixed(6)}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
     // Отображение аптек на карте
     function renderPharmacies() {
       console.log('🗺️ renderPharmacies вызван');
@@ -1149,26 +1172,7 @@
         const circleOpacity = isSelected ? 0.3 : 0.15;
         
         // Создаем попап контент для аптеки
-        const popupContent = `
-          <div style="font-size: 14px; min-width: 200px;">
-            <div style="font-weight: 600; margin-bottom: 12px; font-size: 16px; color: ${isSelected ? '#f59e0b' : '#1d4ed8'};">
-              🏥 ${escapeHtml(p.apt || 'Аптека')}
-            </div>
-            <div style="display: flex; flex-direction: column; gap: 8px;">
-              <div style="display: flex; justify-content: space-between;">
-                <span style="color: var(--text-muted);">Провизор:</span>
-                <strong>${escapeHtml(p.prov || '—')}</strong>
-              </div>
-              <div style="display: flex; justify-content: space-between;">
-                <span style="color: var(--text-muted);">Радиус:</span>
-                <strong style="color: ${isSelected ? '#f59e0b' : '#1d4ed8'};">${p.rad} м</strong>
-              </div>
-              <div style="padding-top: 8px; margin-top: 8px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 11px;">
-                📍 ${p.lat.toFixed(6)}, ${p.lng.toFixed(6)}
-              </div>
-            </div>
-          </div>
-        `;
+        const popupContent = getPharmacyPopupHtml(p, isSelected ? '#f59e0b' : '#1d4ed8');
         
         // Маркер аптеки (кружок в центре, подсвечивается если выбрана)
         const marker = L.circleMarker([p.lat, p.lng], {
@@ -1193,21 +1197,24 @@
         marker.bindPopup(popupContent);
         
         // При клике на маркер - выделяем эту аптеку
-        marker.on('click', function(e) {
+        marker.on('click', function() {
           selectedPharmacyIndex = idx;
+          const currentSearch = document.getElementById('pharmacySearch')?.value || '';
           renderPharmacies();
-          renderPharmacyList();
+          renderPharmacyList(currentSearch);
+          openPharmacyPopup(idx);
         });
         
         // Попап на радиус (тот же контент)
         circle.bindPopup(popupContent);
         
         // При клике на радиус - выделяем эту аптеку
-        circle.on('click', function(e) {
+        circle.on('click', function() {
           selectedPharmacyIndex = idx;
+          const currentSearch = document.getElementById('pharmacySearch')?.value || '';
           renderPharmacies();
-          renderPharmacyList();
-          this.openPopup();
+          renderPharmacyList(currentSearch);
+          openPharmacyPopup(idx);
         });
         
         // Подсветка при наведении
@@ -1225,6 +1232,22 @@
           });
         });
       });
+    }
+
+    function openPharmacyPopup(pharmacyIndex) {
+      if (!pharmacyData[pharmacyIndex]) return;
+      const pharmacy = pharmacyData[pharmacyIndex];
+      const accent = (pharmacyIndex === selectedPharmacyIndex) ? '#f59e0b' : '#1d4ed8';
+      const popupContent = getPharmacyPopupHtml(pharmacy, accent);
+      
+      L.popup({
+        className: 'pharmacy-popup',
+        closeButton: true,
+        maxWidth: 260
+      })
+      .setLatLng([pharmacy.lat, pharmacy.lng])
+      .setContent(popupContent)
+      .openOn(map);
     }
 
     function fillTpFilter(rows){
@@ -1645,6 +1668,7 @@
       // Обновляем список чтобы показать выделение (сохраняем поиск)
       const currentSearch = document.getElementById('pharmacySearch')?.value || '';
       renderPharmacyList(currentSearch);
+      openPharmacyPopup(pharmacyIndex);
       
       showToast(`📍 ${p.apt || 'Аптека'} - ${p.prov || ''}`);
       setTimeout(hideToast, 2000);
